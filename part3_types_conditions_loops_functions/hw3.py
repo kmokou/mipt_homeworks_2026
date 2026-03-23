@@ -1,8 +1,7 @@
-#!/usr/bin/env python
-
-from typing import Any
-from dataclasses import dataclass, field
 import sys
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Any
 
 UNKNOWN_COMMAND_MSG = "Unknown command!"
 NONPOSITIVE_VALUE_MSG = "Value must be grater than zero!"
@@ -11,7 +10,7 @@ NOT_EXISTS_CATEGORY = "Category not exists!"
 OP_SUCCESS_MSG = "Added"
 
 
-EXPENSE_CATEGORIES = {
+EXPENSE_CATEGORIES = MappingProxyType({
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
     "Transport": ("Taxi", "Public transport", "Gas", "Car service"),
     "Housing": ("Rent", "Utilities", "Repairs", "Furniture"),
@@ -21,7 +20,7 @@ EXPENSE_CATEGORIES = {
     "Education": ("Courses", "Books", "Tutors"),
     "Communications": ("Mobile", "Internet", "Subscriptions"),
     "Other": ("SomeCategory", "SomeOtherCategory"),
-}
+})
 
 TRANSACTION_AMOUNT_KEY = "amount"
 TRANSACTION_DATE_KEY = "date"
@@ -56,7 +55,7 @@ class StatsAccumulator:
 
 
 def _reject_transaction(error_message: str) -> str:
-    financial_transactions_storage.append(None)
+    financial_transactions_storage.append({})
     return error_message
 
 
@@ -84,6 +83,12 @@ def _collect_transaction_stats(report_date: DateType) -> StatsAccumulator:
             continue
         _collect_income_stats(stats, transaction, report_date)
     return stats
+
+
+def date_le(date1: DateType, date2: DateType) -> bool:
+    year_and_month_and_day1 = (date1[2], date1[1], date1[0])
+    year_and_month_and_day2 = (date2[2], date2[1], date2[0])
+    return year_and_month_and_day1 <= year_and_month_and_day2
 
 
 def _collect_cost_stats(stats: StatsAccumulator, transaction: dict[str, Any], report_date: DateType) -> None:
@@ -175,7 +180,6 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     if not (MIN_MONTH <= month <= MAX_MONTH and day >= MIN_DAY):
         return None
     return date if day <= _max_days_in_month(month, year) else None
-
 
 
 def income_handler(amount: float, income_date: str) -> str:
