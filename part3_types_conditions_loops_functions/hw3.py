@@ -1,7 +1,6 @@
 import shlex
 import sys
 from dataclasses import dataclass, field
-from types import MappingProxyType
 from typing import Any
 
 UNKNOWN_COMMAND_MSG = "Unknown command!"
@@ -11,7 +10,7 @@ NOT_EXISTS_CATEGORY = "Category not exists!"
 OP_SUCCESS_MSG = "Added"
 
 
-EXPENSE_CATEGORIES = MappingProxyType({
+EXPENSE_CATEGORIES = {
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
     "Transport": ("Taxi", "Public transport", "Gas", "Car service"),
     "Housing": ("Rent", "Utilities", "Repairs", "Furniture"),
@@ -21,7 +20,7 @@ EXPENSE_CATEGORIES = MappingProxyType({
     "Education": ("Courses", "Books", "Tutors"),
     "Communications": ("Mobile", "Internet", "Subscriptions"),
     "Other": ("SomeCategory", "SomeOtherCategory"),
-})
+}
 
 TRANSACTION_AMOUNT_KEY = "amount"
 TRANSACTION_DATE_KEY = "date"
