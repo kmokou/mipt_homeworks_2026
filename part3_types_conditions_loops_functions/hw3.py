@@ -1,3 +1,4 @@
+import shlex
 import sys
 from dataclasses import dataclass, field
 from types import MappingProxyType
@@ -70,7 +71,15 @@ def _max_days_in_month(month: int, year: int) -> int:
 
 
 def _is_month_match(transaction_date: DateType, report_date: DateType) -> bool:
-    return transaction_date[1] == report_date[1]
+    month_match = transaction_date[1] == report_date[1]
+    year_match = transaction_date[2] == report_date[2]
+    return month_match and year_match
+
+
+def date_le(date1: DateType, date2: DateType) -> bool:
+    year_and_month_and_day1 = (date1[2], date1[1], date1[0])
+    year_and_month_and_day2 = (date2[2], date2[1], date2[0])
+    return year_and_month_and_day1 <= year_and_month_and_day2
 
 
 def _collect_transaction_stats(report_date: DateType) -> StatsAccumulator:
@@ -83,12 +92,6 @@ def _collect_transaction_stats(report_date: DateType) -> StatsAccumulator:
             continue
         _collect_income_stats(stats, transaction, report_date)
     return stats
-
-
-def date_le(date1: DateType, date2: DateType) -> bool:
-    year_and_month_and_day1 = (date1[2], date1[1], date1[0])
-    year_and_month_and_day2 = (date2[2], date2[1], date2[0])
-    return year_and_month_and_day1 <= year_and_month_and_day2
 
 
 def _collect_cost_stats(stats: StatsAccumulator, transaction: dict[str, Any], report_date: DateType) -> None:
@@ -131,8 +134,11 @@ def _format_stats(date: DateType, stats: StatsAccumulator) -> str:
     return "\n".join(lines)
 
 
-def _parse_amount(raw_value: str) -> float:
-    return float(raw_value.replace(",", "."))
+def _parse_amount(raw_value: str) -> float | None:
+    try:
+        return float(raw_value.replace(",", "."))
+    except ValueError:
+        return None
 
 
 def _has_valid_date_parts(raw_date_parts: list[str]) -> bool:
@@ -144,15 +150,22 @@ def _has_valid_date_parts(raw_date_parts: list[str]) -> bool:
 def _handle_cost_command(command: list[str]) -> str:
     if len(command) == TWO and command[1] == "categories":
         return cost_categories_handler()
-    if len(command) == FOUR:
-        return cost_handler(command[1], _parse_amount(command[2]), command[3])
+    if len(command) >= FOUR:
+        category_name = " ".join(command[1:-2])
+        amount = _parse_amount(command[-2])
+        if amount is None:
+            return UNKNOWN_COMMAND_MSG
+        return cost_handler(category_name, amount, command[-1])
     return UNKNOWN_COMMAND_MSG
 
 
 def _execute_command(command: list[str]) -> str:
     operation = command[0]
     if operation == "income" and len(command) == THREE:
-        return income_handler(_parse_amount(command[1]), command[2])
+        amount = _parse_amount(command[1])
+        if amount is None:
+            return UNKNOWN_COMMAND_MSG
+        return income_handler(amount, command[2])
     if operation == "cost":
         return _handle_cost_command(command)
     if operation == "stats" and len(command) == TWO:
@@ -235,7 +248,11 @@ def stats_handler(report_date: str) -> str:
 
 def main() -> None:
     for raw_input in sys.stdin:
-        command = raw_input.split()
+        try:
+            command = shlex.split(raw_input)
+        except ValueError:
+            print(UNKNOWN_COMMAND_MSG)
+            continue
         if not command:
             continue
         print(_execute_command(command))
