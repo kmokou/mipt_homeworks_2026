@@ -9,7 +9,7 @@ OP_SUCCESS_MSG = "Added"
 
 EXPENSE_CATEGORIES = {
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
-    "Transport": ("Taxi", "Public transport", "Gas", "Car transport"),
+    "Transport": ("Taxi", "Public transport", "Gas", "Car service"),
     "Housing": ("Rent", "Utilities", "Repairs", "Furniture"),
     "Health": ("Pharmacy", "Doctors", "Dentist", "Lab tests"),
     "Entertainment": ("Movies", "Concerts", "Games", "Subscriptions"),
