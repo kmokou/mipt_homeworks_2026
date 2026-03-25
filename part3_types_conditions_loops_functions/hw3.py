@@ -1,6 +1,3 @@
-import shlex
-import sys
-from dataclasses import dataclass, field
 from typing import Any
 
 UNKNOWN_COMMAND_MSG = "Unknown command!"
@@ -12,7 +9,7 @@ OP_SUCCESS_MSG = "Added"
 
 EXPENSE_CATEGORIES = {
     "Food": ("Supermarket", "Restaurants", "FastFood", "Coffee", "Delivery"),
-    "Transport": ("Taxi", "Public transport", "Gas", "Car service"),
+    "Transport": ("Taxi", "Public transport", "Gas", "Car transport"),
     "Housing": ("Rent", "Utilities", "Repairs", "Furniture"),
     "Health": ("Pharmacy", "Doctors", "Dentist", "Lab tests"),
     "Entertainment": ("Movies", "Concerts", "Games", "Subscriptions"),
@@ -25,6 +22,11 @@ EXPENSE_CATEGORIES = {
 TRANSACTION_AMOUNT_KEY = "amount"
 TRANSACTION_DATE_KEY = "date"
 TRANSACTION_CATEGORY_KEY = "category"
+
+STATS_TOTAL_CAPITAL_KEY = "total_capital"
+STATS_MONTH_INCOME_KEY = "month_income"
+STATS_MONTH_EXPENSES_KEY = "month_expenses"
+STATS_DETAILS_KEY = "details"
 
 DATE_SPLIT_COUNT = 3
 MIN_MONTH = 1
@@ -44,14 +46,8 @@ FOUR = 4
 
 
 DateType = tuple[int, int, int]
-
-
-@dataclass
-class StatsAccumulator:
-    total_capital: float = 0
-    month_income: float = 0
-    month_expenses: float = 0
-    details: dict[str, float] = field(default_factory=dict)
+TransactionType = dict[str, Any]
+StatsType = dict[str, Any]
 
 
 def _reject_transaction(error_message: str) -> str:
@@ -81,8 +77,13 @@ def date_le(date1: DateType, date2: DateType) -> bool:
     return year_and_month_and_day1 <= year_and_month_and_day2
 
 
-def _collect_transaction_stats(report_date: DateType) -> StatsAccumulator:
-    stats = StatsAccumulator()
+def _collect_transaction_stats(report_date: DateType) -> StatsType:
+    stats = {
+        STATS_TOTAL_CAPITAL_KEY: 0,
+        STATS_MONTH_INCOME_KEY: 0,
+        STATS_MONTH_EXPENSES_KEY: 0,
+        STATS_DETAILS_KEY: {},
+    }
     for transaction in financial_transactions_storage:
         if not transaction or not date_le(transaction[TRANSACTION_DATE_KEY], report_date):
             continue
@@ -93,20 +94,21 @@ def _collect_transaction_stats(report_date: DateType) -> StatsAccumulator:
     return stats
 
 
-def _collect_cost_stats(stats: StatsAccumulator, transaction: dict[str, Any], report_date: DateType) -> None:
+def _collect_cost_stats(stats: StatsType, transaction: TransactionType, report_date: DateType) -> None:
     amount = transaction[TRANSACTION_AMOUNT_KEY]
-    stats.total_capital -= amount
+    stats[STATS_TOTAL_CAPITAL_KEY] -= amount
     if _is_month_match(transaction[TRANSACTION_DATE_KEY], report_date):
-        stats.month_expenses += amount
+        stats[STATS_MONTH_EXPENSES_KEY] += amount
         category = transaction[TRANSACTION_CATEGORY_KEY]
-        stats.details[category] = stats.details.get(category, 0) + amount
+        details = stats[STATS_DETAILS_KEY]
+        details[category] = details.get(category, 0) + amount
 
 
-def _collect_income_stats(stats: StatsAccumulator, transaction: dict[str, Any], report_date: DateType) -> None:
+def _collect_income_stats(stats: StatsType, transaction: TransactionType, report_date: DateType) -> None:
     amount = transaction[TRANSACTION_AMOUNT_KEY]
-    stats.total_capital += amount
+    stats[STATS_TOTAL_CAPITAL_KEY] += amount
     if _is_month_match(transaction[TRANSACTION_DATE_KEY], report_date):
-        stats.month_income += amount
+        stats[STATS_MONTH_INCOME_KEY] += amount
 
 
 def _format_detail_lines(details: dict[str, float]) -> list[str]:
@@ -117,16 +119,16 @@ def _format_detail_lines(details: dict[str, float]) -> list[str]:
     ]
 
 
-def _format_stats(date: DateType, stats: StatsAccumulator) -> str:
-    month_type = "loss" if stats.month_income < stats.month_expenses else "profit"
-    month_balance = abs(stats.month_income - stats.month_expenses)
-    details_lines = _format_detail_lines(stats.details)
+def _format_stats(date: DateType, stats: StatsType) -> str:
+    month_type = "loss" if stats[STATS_MONTH_INCOME_KEY] < stats[STATS_MONTH_EXPENSES_KEY] else "profit"
+    month_balance = abs(stats[STATS_MONTH_INCOME_KEY] - stats[STATS_MONTH_EXPENSES_KEY])
+    details_lines = _format_detail_lines(stats[STATS_DETAILS_KEY])
     lines = [
         f"Your statistics as of {date[0]}-{date[1]}-{date[2]}:",
-        f"Total capital: {stats.total_capital} rubles",
+        f"Total capital: {stats[STATS_TOTAL_CAPITAL_KEY]} rubles",
         f"This month, the {month_type} amounted to {month_balance} rubles.",
-        f"Income: {stats.month_income} rubles",
-        f"Expenses: {stats.month_expenses} rubles",
+        f"Income: {stats[STATS_MONTH_INCOME_KEY]} rubles",
+        f"Expenses: {stats[STATS_MONTH_EXPENSES_KEY]} rubles",
         "Details (category: amount):",
         *details_lines,
     ]
@@ -166,6 +168,9 @@ def _execute_command(command: list[str]) -> str:
             return UNKNOWN_COMMAND_MSG
         return income_handler(amount, command[2])
     if operation == "cost":
+        if len(command) > THREE and command[3] in ("transport", "service"):
+            command[2] = f"{command[2]} {command[3]}"
+            del command[3]
         return _handle_cost_command(command)
     if operation == "stats" and len(command) == TWO:
         return stats_handler(command[1])
@@ -246,15 +251,9 @@ def stats_handler(report_date: str) -> str:
 
 
 def main() -> None:
-    for raw_input in sys.stdin:
-        try:
-            command = shlex.split(raw_input)
-        except ValueError:
-            print(UNKNOWN_COMMAND_MSG)
-            continue
-        if not command:
-            continue
-        print(_execute_command(command))
+    with open(0) as stdin:
+        for line in stdin:
+            print(_execute_command(line.strip().split()))
 
 
 if __name__ == "__main__":
