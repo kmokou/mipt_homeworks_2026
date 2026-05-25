@@ -3,7 +3,7 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 
-from chat import ChatHistory, LLMClient, LLMError, Message
+from chat import ChatHistory, LLMClient, LLMClientProtocol, LLMError, Message
 from config import AppConfig, ConfigError, load_config
 from files import (
     ChunkSpec,
@@ -52,7 +52,7 @@ def read_input(prompt: str = PROMPT) -> str:
     return input(prompt)
 
 
-def ask_streaming(client: LLMClient, messages: list[Message]) -> str:
+def ask_streaming(client: LLMClientProtocol, messages: list[Message]) -> str:
     try:
         return print_stream(client.stream(messages))
     except KeyboardInterrupt:
@@ -61,7 +61,7 @@ def ask_streaming(client: LLMClient, messages: list[Message]) -> str:
         raise
 
 
-def run_file_chunk(client: LLMClient, args: str) -> None:
+def run_file_chunk(client: LLMClientProtocol, args: str) -> None:
     try:
         spec = parse_chunk_args(args)
     except ChunkSpecError as exc:
@@ -99,7 +99,7 @@ def run_file_chunk(client: LLMClient, args: str) -> None:
     print_info('Обработка файла завершена.')
 
 
-def process_chunks(client: LLMClient, text: str, prompt: str, spec: ChunkSpec) -> None:
+def process_chunks(client: LLMClientProtocol, text: str, prompt: str, spec: ChunkSpec) -> None:
     for chunk in iter_chunks(text, spec):
         messages = [Message('user', f'{prompt}\n\n{chunk}')]
         try:
@@ -121,7 +121,7 @@ def process_chunks(client: LLMClient, text: str, prompt: str, spec: ChunkSpec) -
             return
 
 
-def handle_message(client: LLMClient, history: ChatHistory, raw: str) -> None:
+def handle_message(client: LLMClientProtocol, history: ChatHistory, raw: str) -> None:
     text = raw.strip()
     if not text:
         return
@@ -147,7 +147,7 @@ def handle_message(client: LLMClient, history: ChatHistory, raw: str) -> None:
         history.add('assistant', reply)
 
 
-def chat_loop(client, history: ChatHistory) -> int:
+def chat_loop(client: LLMClientProtocol, history: ChatHistory) -> int:
     print_info(
         'GigaVibeMiptCode готов к работе. Команды: \\q - выход, '
         '/reset - сброс истории, /file_chunk - пакетная обработка файла.',

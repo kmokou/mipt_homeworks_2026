@@ -1,10 +1,20 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from typing import Any, Protocol
 
 from openai import APIConnectionError, APIError, OpenAI
 
 class LLMError(Exception):
     pass
+
+
+class LLMClientProtocol(Protocol):
+
+    def complete(self, messages: Iterable['Message']) -> str:
+        ...
+
+    def stream(self, messages: Iterable['Message']) -> Iterator[str]:
+        ...
 
 
 @dataclass
@@ -87,7 +97,7 @@ class LLMClient:
         self._model = model
         self._temperature = temperature
 
-    def _payload(self, messages):
+    def _payload(self, messages: Iterable[Message]) -> list[Any]:
         return [m.to_dict() for m in messages]
 
     def complete(self, messages: Iterable[Message]) -> str:
@@ -107,9 +117,9 @@ class LLMClient:
             raise LLMError('llm returned blank response')
         return choices[0].message.content or ''
 
-    def stream(self, messages):
+    def stream(self, messages: Iterable[Message]) -> Iterator[str]:
         try:
-            stream = self._client.chat.completions.create(
+            stream: Any = self._client.chat.completions.create(
                 model=self._model,
                 temperature=self._temperature,
                 messages=self._payload(messages),
